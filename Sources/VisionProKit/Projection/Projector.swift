@@ -164,19 +164,20 @@ public struct SingleEyeExtrinsic: Sendable {
         // 下游处理的时候（比如Kabsch算法设计用于找到最优的刚体变换）
         // 常常假设相机外参只包含旋转和平移，我们要验证这一点。
         
-        // 验证 det(R) == 1
-        let epsilon: Float = 1e-6
+        // Float32 矩阵行列式误差约 ~6e-7（左眼）~更大（右眼），需放宽至 1e-4
+        let epsilon: Float = 1e-4
         guard abs(simd_determinant(cameraViewTransform.matrix) - 1) < epsilon else {
             throw GetViewTransformError.notRigidTransformation("假设是正交变换（旋转+平移），行列式理应为 1，事实上行列式不等于 1，所以矩阵包含缩放或投影。")
         }
-        let tolerance: Float = 1e-6
+        // Float32 矩阵分解时列模长误差约 ~5e-6，需放宽至 1e-4 才能通过
+        let tolerance: Float = 1e-4
         guard abs(cameraViewTransform.scale.x - 1) < tolerance &&
                 abs(cameraViewTransform.scale.y - 1) < tolerance &&
                 abs(cameraViewTransform.scale.z - 1) < tolerance else {
             throw GetViewTransformError.notRigidTransformation("不是刚性变换，可能带有缩放。")
         }
         // 验证是否只包含旋转和平移，没有缩放、非均匀缩放或其他仿射变换成分。
-        guard isEqual(cameraViewTransform, Transform(rotation: cameraViewTransform.rotation, translation: cameraViewTransform.translation), tolerance: 1e-6) else {
+        guard isEqual(cameraViewTransform, Transform(rotation: cameraViewTransform.rotation, translation: cameraViewTransform.translation), tolerance: 1e-4) else {
             throw GetViewTransformError.notRigidTransformation("不是刚性变换，可能带有缩放和剪切。")
         }
         

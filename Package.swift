@@ -23,5 +23,8 @@ let package = Package(
             swiftSettings: [
                 .enableUpcomingFeature("MemberImportVisibility")
             ]),
+        .testTarget(
+            name: "VisionProKitTests",
+            dependencies: ["VisionProKit"]),
     ]
 )

@@ -10,7 +10,7 @@ import Foundation
 public actor ScreenDistanceOptimizer {
     
     /// 默认屏幕距离（米）- 左眼固定距离和右眼搜索下界
-    public static let defaultScreenDistance: Double = 1
+    public static let defaultScreenDistance: Double = 30
     /// 默认搜索范围上限相对于下限的倍数
     /// 注意：此倍数只影响阶段1（指数扩展）的初始上限，算法会自动扩展直到找到不相交点
     /// 较大的倍数可减少阶段1的检查次数，但不会限制最终输出的临界值
@@ -44,7 +44,7 @@ public actor ScreenDistanceOptimizer {
         var step = 1.0
         var totalChecks = 0
         
-        var inter = await checkIntersection(distance: low, leftScreen: leftScreen, rightCameraPose: rightCameraPose, intrinsic: intrinsic, debug: false)
+        var inter = checkIntersection(distance: low, leftScreen: leftScreen, rightCameraPose: rightCameraPose, intrinsic: intrinsic, debug: false)
         totalChecks += 1
         
         if !inter.intersects {
@@ -53,7 +53,7 @@ public actor ScreenDistanceOptimizer {
         
         while high <= maxHigh {
             high = low + step
-            inter = await checkIntersection(distance: high, leftScreen: leftScreen, rightCameraPose: rightCameraPose, intrinsic: intrinsic)
+            inter = checkIntersection(distance: high, leftScreen: leftScreen, rightCameraPose: rightCameraPose, intrinsic: intrinsic)
             totalChecks += 1
             if !inter.intersects { break }
             step *= 2
@@ -66,14 +66,14 @@ public actor ScreenDistanceOptimizer {
         
         while high - low > precision {
             let mid = (low + high) / 2.0
-            inter = await checkIntersection(distance: mid, leftScreen: leftScreen, rightCameraPose: rightCameraPose, intrinsic: intrinsic)
+            inter = checkIntersection(distance: mid, leftScreen: leftScreen, rightCameraPose: rightCameraPose, intrinsic: intrinsic)
             iteration += 1
             if inter.intersects { low = mid } else { high = mid }
         }
         
         let result = high
         let totalIterations = totalChecks + iteration
-        let finalCheck = await checkIntersection(distance: result, leftScreen: leftScreen, rightCameraPose: rightCameraPose, intrinsic: intrinsic)
+        let finalCheck = checkIntersection(distance: result, leftScreen: leftScreen, rightCameraPose: rightCameraPose, intrinsic: intrinsic)
         return OptimizationResult(minDistance: result, iterationCount: totalIterations, finalCheck: finalCheck)
     }
     
@@ -84,19 +84,19 @@ public actor ScreenDistanceOptimizer {
         rightCameraPose: Transform,
         intrinsic: SingleEyeIntrinsic.SimpleCameraIntrinsic,
         debug: Bool = false
-    ) async -> ScreenIntersectionChecker.IntersectionResult {
-        let rightScreen = await calculateRightScreen(distance: distance, cameraPose: rightCameraPose, intrinsic: intrinsic)
+    ) -> ScreenIntersectionChecker.IntersectionResult {
+        let rightScreen = calculateRightScreen(distance: distance, cameraPose: rightCameraPose, intrinsic: intrinsic)
         return ScreenIntersectionChecker.checkIntersection(screen1: leftScreen, screen2: rightScreen, debug: debug)
     }
-
+    
     private static func calculateRightScreen(
         distance: Double,
         cameraPose: Transform,
         intrinsic: SingleEyeIntrinsic.SimpleCameraIntrinsic
-    ) async -> ScreenIntersectionChecker.ScreenData {
-        let calculator = ScreenCalculator(intrinsic: intrinsic)
-        let (screenPose, screenSize) = await calculator.calculateScreenPoseAndSize(
+    ) -> ScreenIntersectionChecker.ScreenData {
+        let (screenPose, screenSize) = DirectScreenCalculator.calculateScreenPoseAndSize(
             cameraPose: cameraPose,
+            intrinsic: intrinsic,
             distance: distance
         )
         return ScreenIntersectionChecker.ScreenData(pose: screenPose, size: screenSize)
